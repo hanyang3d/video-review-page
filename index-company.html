@@ -53,19 +53,16 @@
   </table>
 
   <script>
-    const apiKey = "patfUlX3SlpQmrDyM.11b3b59e8b64449690a1e0eb3fa4e735c7278ff657ec65c46f74b5be39691873"; // ← Airtable API Key로 교체
-    const baseId = "appzPMEgLj1HAFx0U";
-    const tableName = "AI 생성 결과";
-
+    // index-company.html 수정된 스크립트 부분
     const tableBody = document.getElementById("company-table-body");
+    const makeWebhookUrl = "여러분의_메이크_웹훅_주소"; // 상세내용 보기와 동일한 주소
 
-    fetch(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?fields[]=기업명&maxRecords=1000`, {
-      headers: { Authorization: `Bearer ${apiKey}` }
-    })
+    fetch(makeWebhookUrl) // post_id 없이 호출하면 메이크가 '기업 목록'을 보내줍니다.
     .then(res => res.json())
     .then(data => {
-      const counts = {}; // {기업명: 개수}
-
+      const counts = {};
+      
+      // 메이크에서 보내준 records 배열을 처리합니다.
       data.records.forEach(record => {
         const name = record.fields["기업명"];
         if (name) {
