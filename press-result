@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>📄 생성된 보도자료</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 40px;
+      background: #fff;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .company {
+      color: #555;
+      margin-bottom: 20px;
+    }
+    .content {
+      border-top: 1px solid #ddd;
+      padding-top: 20px;
+    }
+    img {
+      max-width: 100%;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="article">⏳ 기사를 불러오는 중입니다...</div>
+
+  <script>
+    async function loadArticle() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+
+      if (!id) {
+        document.getElementById("article").innerText = "❌ 유효하지 않은 접근입니다.";
+        return;
+      }
+
+      try {
+        const res = await fetch(`https://hyltest-press-get.mktg-95f.workers.dev/?id=${id}`);
+        const data = await res.json();
+
+        const { fields } = data;
+        const company = fields["기업명"] || "알 수 없음 기업";
+        const title = fields["콘텐츠 제목"] || "제목 없음";
+        const htmlContent = fields["내용(html)"] || "<p>내용 없음</p>";
+        const image = fields["이미지"] || "";
+
+        document.getElementById("article").innerHTML = `
+          <h1>${title}</h1>
+          <div class="company">📌 ${company}</div>
+          ${image ? `<img src="${image}" alt="대표 이미지">` : ""}
+          <div class="content">${htmlContent}</div>
+        `;
+      } catch (err) {
+        document.getElementById("article").innerHTML = "⚠️ 기사를 불러오는 데 실패했습니다.";
+        console.error(err);
+      }
+    }
+
+    loadArticle();
+  </script>
+</body>
+</html>

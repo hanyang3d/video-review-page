@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>💳 HY3D 크레딧 충전</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f7f9fb;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      font-size: 16px;
+      color: #555;
+      max-width: 500px;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background-color: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .input-group input, .input-group select {
+      width: 100%;
+      padding: 10px;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .submit-button {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .submit-button:hover {
+      background-color: #005fa3;
+    }
+
+    .home-button {
+      background-color: #e0e0e0;
+      color: #333;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      font-size: 15px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    .home-button:hover {
+      background-color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>💳 HY3D 크레딧 충전</h1>
+  <p>HY3D 서비스는 크레딧 기반으로 사용됩니다. <strong>10크레딧 = 1,000원</strong>입니다.<br>원하시는 금액만큼 크레딧을 충전해 주세요.</p>
+
+  <div class="card">
+    <div class="input-group">
+      <label for="id">아이디</label>
+      <input type="text" id="id" placeholder="예: h3d_admin" required>
+    </div>
+
+    <div class="input-group">
+      <label for="password">비밀번호</label>
+      <input type="password" id="password" placeholder="계정 비밀번호" required>
+    </div>
+
+    <div class="input-group">
+      <label for="email">이메일</label>
+      <input type="email" id="email" placeholder="예: user@example.com" required>
+    </div>
+
+    <div class="input-group">
+      <label for="credits">충전할 크레딧</label>
+      <select id="credits">
+        <option value="10">10 크레딧 - ₩1,000</option>
+        <option value="30">30 크레딧 - ₩3,000</option>
+        <option value="50">50 크레딧 - ₩5,000</option>
+        <option value="100">100 크레딧 - ₩10,000</option>
+      </select>
+    </div>
+
+    <button class="submit-button" onclick="submitPayment()">💳 충전하기</button>
+  </div>
+
+  <button class="home-button" onclick="goHome()">🏠 홈으로 돌아가기</button>
+
+  <script>
+    async function submitPayment() {
+      const id = document.getElementById("id").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const credits = parseInt(document.getElementById("credits").value, 10);
+
+      if (!id || !password || !email) {
+        alert("아이디, 비밀번호, 이메일을 모두 입력해 주세요.");
+        return;
+      }
+
+      try {
+        const response = await fetch("https://hyltest-payment.mktg-95f.workers.dev/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id,
+            password,
+            email,
+            creditsToAdd: credits
+          })
+        });
+
+        if (response.status === 200) {
+          alert(`✅ ${id}님, ${credits} 크레딧이 충전되었습니다.`);
+        } else if (response.status === 401) {
+          alert("❌ 비밀번호가 일치하지 않습니다.");
+        } else if (response.status === 404) {
+          alert("❌ 아이디를 찾을 수 없습니다.");
+        } else {
+          alert("⚠️ 오류 발생: " + response.status);
+        }
+      } catch (error) {
+        alert("⚠️ 네트워크 오류: " + error.message);
+      }
+    }
+
+    function goHome() {
+      window.location.href = "home.html"; // 필요시 경로 수정
+    }
+  </script>
+</body>
+</html>

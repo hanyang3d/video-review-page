@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>📰 보도자료 생성</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f7f9fb;
+      padding: 40px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    h2 {
+      color: #007acc;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 6px;
+      margin-top: 20px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 12px 20px;
+      background-color: #007acc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: #005fa3;
+    }
+  </style>
+</head>
+<body>
+  <h2>📰 보도자료 생성 요청</h2>
+
+  <label for="id">아이디</label>
+  <input type="text" id="id" placeholder="예: hy3d_admin">
+
+  <label for="email">이메일</label>
+  <input type="email" id="email" placeholder="예: user@example.com">
+
+  <label for="password">비밀번호</label>
+  <input type="password" id="password" placeholder="비밀번호를 입력하세요">
+
+  <label for="title">게시글 주제</label>
+  <input type="text" id="title" placeholder="예: 스마트 워치 출시">
+
+  <label for="highlight">강조 내용</label>
+  <textarea id="highlight" rows="4" placeholder="핵심 내용을 입력하세요"></textarea>
+
+  <label for="imageUrl">제품 이미지 URL</label>
+  <input type="url" id="imageUrl" placeholder="예: https://...">
+
+  <button onclick="submitPress()">🛠 생성 요청</button>
+
+  <script>
+    async function submitPress() {
+      const id = document.getElementById('id').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const title = document.getElementById('title').value.trim();
+      const highlight = document.getElementById('highlight').value.trim();
+      const imageUrl = document.getElementById('imageUrl').value.trim();
+
+      if (!id || !email || !password || !title || !highlight || !imageUrl) {
+        alert('모든 항목을 입력해 주세요.');
+        return;
+      }
+
+      const payload = {
+        id,
+        email,
+        password,
+        title,
+        highlight,
+        image: [
+          { url: imageUrl } // ✅ Airtable Attachment 형식
+        ]
+      };
+
+      try {
+        const response = await fetch('https://press-submit.mktg-95f.workers.dev/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const recordId = data.id;
+          window.location.href = `press-result.html?id=${recordId}`;
+        } else {
+          const errorText = await response.text();
+          alert('⚠️ 생성 실패: ' + errorText);
+        }
+      } catch (err) {
+        alert('⚠️ 네트워크 오류: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

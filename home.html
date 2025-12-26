@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>🔐 콘텐츠 관리 접근 선택</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background-color: #f9f9f9;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    header {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+    }
+
+    .payment-button {
+      padding: 10px 18px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background-color: #28a745;
+      color: white;
+      transition: background-color 0.3s ease;
+    }
+
+    .payment-button:hover {
+      background-color: #1e7e34;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 30px;
+    }
+
+    .button-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .access-button {
+      padding: 16px 32px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background-color: #007acc;
+      color: white;
+      transition: background-color 0.3s ease;
+    }
+
+    .access-button:hover {
+      background-color: #005fa3;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <button class="payment-button" onclick="location.href='https://hyl-mktg.github.io/blog-review-page/payment.html'">💳 결제</button>
+  </header>
+
+  <h1>📂 콘텐츠 관리 접근 선택</h1>
+
+  <div class="button-container">
+    <button class="access-button" onclick="loginWithAccount()">🤖 AI 콘텐츠</button>
+    <button class="access-button" onclick="location.href='press-form.html'">📝 보도자료 생성</button>
+    <button class="access-button" onclick="location.href='blog-list-page-news.html?company=하이쓰리디'">📰 뉴스 콘텐츠</button>
+  </div>
+
+  <script>
+    // 이미 로그인 되어 있으면 자동 이동
+    window.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        // 로그인 유지
+        location.href = 'index-company.html';
+      }
+    });
+
+    async function loginWithAccount() {
+      const id = prompt("👤 아이디를 입력하세요:");
+      if (!id) return;
+
+      const password = prompt("🔐 비밀번호를 입력하세요:");
+      if (!password) return;
+
+      try {
+        const response = await fetch("https://hyltest-login.mktg-95f.workers.dev/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, password })
+        });
+
+        if (response.status === 200) {
+          const result = await response.json();
+          localStorage.setItem("token", result.token); // 예: { token: "abc123" }
+          localStorage.setItem("id", id); // 사용자 아이디 저장
+          location.href = "index-company.html";
+        } else if (response.status === 401) {
+          alert("❌ 아이디 또는 비밀번호가 잘못되었습니다.");
+        } else {
+          alert("⚠️ 서버 오류: " + response.status);
+        }
+      } catch (error) {
+        alert("⚠️ 네트워크 오류: " + error.message);
+      }
+    }
+  </script>
+</body>
+</html>

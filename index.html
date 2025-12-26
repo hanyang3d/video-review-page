@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>HYL 블로그 승인 시스템</title>
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    #editor-container, #content-display, #meta-display {
+      max-width: 800px;
+      margin: 20px auto;
+      text-align: left;
+    }
+    #editor-container {
+      height: 400px;
+      display: none;
+    }
+    button {
+      margin: 12px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #loading {
+      font-size: 18px;
+      color: #888;
+      margin-top: 20px;
+    }
+    #content-display {
+      border: 1px solid #ccc;
+      padding: 20px;
+      background: #fafafa;
+      min-height: 400px;
+    }
+    .edit-buttons {
+      display: none;
+    }
+    #meta-display {
+      margin-bottom: 10px;
+    }
+    .meta-company {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+    .meta-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+    #title-input {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 6px;
+      margin-bottom: 4px;
+      width: 100%;
+      display: none;
+    }
+    .meta-date {
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 16px;
+    }
+    .meta-tags {
+      font-size: 14px;
+      color: #555;
+      margin-top: 30px;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="meta-display">
+    <div class="meta-company" id="meta-company"></div>
+    <div class="meta-title" id="meta-title"></div>
+    <input type="text" id="title-input" />
+    <div class="meta-date" id="meta-date"></div>
+  </div>
+
+  <div id="loading">⏳ 불러오는 중입니다...</div>
+  <div id="content-display"></div>
+  <div id="editor-container"></div>
+
+  <div id="buttons" style="display:none;">
+    <button onclick="toggleEditMode()">✏️ 수정</button>
+    <button onclick="sendWebhook('approve')">✅ 승인</button>
+    <button onclick="sendWebhook('retry')">🔁 승인 취소</button>
+    <button onclick="goHome()">🏠 홈으로</button>
+  </div>
+
+  <div id="edit-buttons" class="edit-buttons">
+    <button onclick="applyEdit()">📝 수정 완료</button>
+    <button onclick="cancelEdit()">❌ 취소</button>
+    <button onclick="triggerImageUpload()">🖼️ 이미지 추가</button>
+  </div>
+
+  <input type="file" id="image-upload" accept="image/*" style="display:none;" />
+
+  <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const company = urlParams.get("company");
+    const postId = urlParams.get("post_id");
+
+    const proxyEndpoint = "https://hyltest-airtable-content.mktg-95f.workers.dev/";
+    const webhookApprove = "https://hook.eu1.make.com/okhlmq986f82n94qvfyafsxpybx1pvdl";
+    const webhookRetry = "https://hook.eu1.make.com/lgbmpgnnaqljrfrzlahbviis82oyii15";
+
+    const loading = document.getElementById("loading");
+    const contentDisplay = document.getElementById("content-display");
+    const editorContainer = document.getElementById("editor-container");
+    const buttons = document.getElementById("buttons");
+    const editButtons = document.getElementById("edit-buttons");
+
+    const metaTitle = document.getElementById("meta-title");
+    const titleInput = document.getElementById("title-input");
+    const metaCompany = document.getElementById("meta-company");
+    const metaDate = document.getElementById("meta-date");
+
+    let quill;
+    let htmlContent = "";
+    let currentContent = "";
+    let airtableRecordId = null;  // ✅ 추가: Airtable 레코드 ID 저장용
+
+    if (!company || !postId) {
+      loading.innerHTML = "<span style='color:red;'>❌ URL에 company 또는 post_id가 불장했습니다.</span>";
+    } else {
+      fetch(`${proxyEndpoint}?company=${encodeURIComponent(company)}&post_id=${encodeURIComponent(postId)}`)
+        .then(res => {
+          if (!res.ok) throw new Error("프로키 응답 오류");
+          return res.json();
+        })
+        .then(data => {
+          loading.style.display = "none";
+
+          // ✅ 추가: 워커에서 내려온 Airtable 레코드 ID 저장
+          airtableRecordId = data.airtable_record_id || data.id || null;
+
+          const record = data.fields;
+
+          if (!record) {
+            contentDisplay.innerHTML = "<p>❌ 해당 콘텐츠를 찾을 수 없습니다.</p>";
+            return;
+          }
+
+          htmlContent = record["내용(html)"] || "";
+          currentContent = htmlContent;
+
+          const companyName = record["기업명"] || "";
+          const title = record["콘텐츠 제목"] || "제목 없음";
+          const date = record["예약 날짜"] ? new Date(record["예약 날짜"]).toLocaleDateString("ko-KR") : "";
+          const tags = record["Hashtag"] || "";
+
+          metaCompany.innerText = companyName;
+          metaTitle.innerText = title;
+          titleInput.value = title;
+          metaDate.innerText = date;
+
+          contentDisplay.innerHTML = `
+            <div style="max-width: 900px; margin: 0 auto;">
+              ${htmlContent}
+              ${tags ? `<div class="meta-tags">#${tags.replaceAll(",", " #")}</div>` : ""}
+            </div>
+          `;
+
+          buttons.style.display = "block";
+          localStorage.setItem(`viewed_${company}_${postId}`, "true");
+
+          quill = new Quill("#editor-container", {
+            theme: "snow",
+            placeholder: "내용을 수정하세요...",
+            modules: {
+              toolbar: [
+                [{ header: [1, 2, false] }],
+                ["bold", "italic", "underline"],
+                ["link", "blockquote", "code-block"],
+                [{ list: "ordered" }, { list: "bullet" }]
+              ]
+            }
+          });
+
+          // base64 이미지 붙여넣기 차단 + 업로드
+          quill.getModule('clipboard').addMatcher('img', function (node, delta) {
+            const imageSrc = node.getAttribute('src');
+            if (imageSrc && imageSrc.startsWith('data:image')) {
+              uploadBase64ToCloudinary(imageSrc);
+              return new Delta(); // base64 삽입 차단
+            }
+            return delta;
+          });
+
+          quill.clipboard.dangerouslyPasteHTML(htmlContent);
+        })
+        .catch(error => {
+          console.error(error);
+          loading.innerText = "⚠️ 콘텐츠 불러오기 오류";
+        });
+    }
+
+    function toggleEditMode() {
+      editorContainer.style.display = "block";
+      contentDisplay.style.display = "none";
+      buttons.style.display = "none";
+      editButtons.style.display = "block";
+      metaTitle.style.display = "none";
+      titleInput.style.display = "block";
+      quill.clipboard.dangerouslyPasteHTML(currentContent);
+    }
+
+    function applyEdit() {
+      currentContent = quill.root.innerHTML;
+      const newTitle = titleInput.value || "제목 없음";
+      metaTitle.innerText = newTitle;
+
+      contentDisplay.innerHTML = `
+        <div style="max-width: 900px; margin: 0 auto;">
+          ${currentContent}
+        </div>
+      `;
+
+      editorContainer.style.display = "none";
+      contentDisplay.style.display = "block";
+      buttons.style.display = "block";
+      editButtons.style.display = "none";
+      metaTitle.style.display = "block";
+      titleInput.style.display = "none";
+    }
+
+    function cancelEdit() {
+      editorContainer.style.display = "none";
+      contentDisplay.style.display = "block";
+      buttons.style.display = "block";
+      editButtons.style.display = "none";
+      metaTitle.style.display = "block";
+      titleInput.style.display = "none";
+    }
+
+    function sendWebhook(action) {
+      const url = action === "approve" ? webhookApprove : webhookRetry;
+      const payload = {
+        post_id: postId,
+        company: company,
+        action: action
+      };
+
+      // ✅ 추가: Airtable 레코드 ID를 Webhook 페이로드에 포함
+      if (airtableRecordId) {
+        payload.airtable_record_id = airtableRecordId;
+      }
+
+      if (action === "approve") {
+        const title = titleInput.value || "제목 없음";
+        const wrappedContent = currentContent.includes("max-width: 900px")
+          ? currentContent
+          : `<div style=\"max-width: 900px; margin: 0 auto;\">${currentContent}</div>`;
+
+        payload["edited_title"] = title;
+        payload["edited_html"] = wrappedContent;
+      }
+
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+        .then(() => alert(`"${action}" 요청이 전송되었습니다.`))
+        .catch(() => alert("요청 전송 중 오류 발생"));
+    }
+
+    function goHome() {
+      window.location.href = `blog-list-page.html?company=${company}`;
+    }
+
+    function triggerImageUpload() {
+      document.getElementById("image-upload").click();
+    }
+
+document.getElementById("image-upload").addEventListener("change", function () {
+  const file = this.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff"; // PNG의 투명 배경 제거
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob(function (blob) {
+        const convertedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: "image/jpeg" });
+        const formData = new FormData();
+        formData.append("file", convertedFile);
+        formData.append("upload_preset", "mktg_ai");
+
+        fetch("https://api.cloudinary.com/v1_1/dte6zhuck/image/upload", {
+          method: "POST",
+          body: formData
+        })
+          .then(res => res.json())
+          .then(result => {
+            const url = result.secure_url;
+            const alt = convertedFile.name.split(".")[0];
+            const html = `<p style="text-align: center;"><img src="${url}" alt="${alt}" class="responsive-image" width="800" style="max-width:100%; height:auto;" /></p>`;
+            const range = quill.getSelection(true);
+            quill.clipboard.dangerouslyPasteHTML(range.index, html);
+          })
+          .catch(err => {
+            console.error("이미지 업로드 실패:", err);
+            alert("이미지 업로드에 실패했습니다.");
+          });
+      }, "image/jpeg", 0.92);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+
+    function uploadBase64ToCloudinary(base64Data) {
+      const blob = base64ToBlob(base64Data);
+      const file = new File([blob], 'image.png', { type: blob.type });
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "mktg_ai");
+
+      fetch("https://api.cloudinary.com/v1_1/dte6zhuck/image/upload", {
+        method: "POST",
+        body: formData
+      })
+        .then(res => res.json())
+        .then(result => {
+          const url = result.secure_url;
+          const html = `<p style="text-align: center;"><img src="${url}" alt="붙여넣은 이미지" class="responsive-image" width="800" style="max-width:100%; height:auto;" /></p>`;
+          const range = quill.getSelection(true);
+          quill.clipboard.dangerouslyPasteHTML(range.index, html);
+        })
+        .catch(err => {
+          console.error("Cloudinary 업로드 실패", err);
+          alert("이미지 업로드에 실패했습니다.");
+        });
+    }
+
+    function base64ToBlob(base64) {
+      const parts = base64.split(";base64,");
+      const contentType = parts[0].split(":")[1];
+      const raw = window.atob(parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+
+      return new Blob([uInt8Array], { type: contentType });
+    }
+
+    document.addEventListener("click", function (e) {
+      if (e.target.tagName === "IMG") {
+        if (confirm("이 이미지를 삭제하시겠습니까?")) {
+          const parent = e.target.closest("p") || e.target;
+          parent.remove();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
